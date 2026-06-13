@@ -1,7 +1,21 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
+/*
+ * Class-based dark mode. Tailwind v4 defaults `dark:` to prefers-color-scheme;
+ * this app forces dark via <html class="dark">, so wire the variant to the class.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
+  /* ---- Typography ---------------------------------------------------- */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-display), var(--font-inter), ui-sans-serif,
+    system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  /* ---- Semantic tokens (resolved from :root below) ------------------- */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
@@ -30,41 +44,196 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  /* Single restrained accent family + semantic colors */
+  --color-accent-cyan: #34e0e8;
+  --color-pos: #3ddc84;
+  --color-neg: #ff5470;
+
+  /* ---- Radii --------------------------------------------------------- */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  /* ---- Elevation / focus glow (used sparingly) ----------------------- */
+  --shadow-elev: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
+    0 12px 32px -18px rgba(0, 0, 0, 0.8);
+  --shadow-glow: 0 0 0 1px rgba(52, 224, 232, 0.35),
+    0 0 22px -6px rgba(52, 224, 232, 0.45);
+
+  /* ---- Motion -------------------------------------------------------- */
+  --animate-slide-in: slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 :root {
-  --background: oklch(0.12 0.01 250);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.15 0.02 250);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.15 0.02 250);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.65 0.25 250);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.2 0.05 250);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.2 0.05 250);
-  --muted-foreground: oklch(0.65 0.05 250);
-  --accent: oklch(0.2 0.05 250);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.4 0.2 20);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.05 250);
-  --input: oklch(0.25 0.05 250);
-  --ring: oklch(0.65 0.25 250);
-  --radius: 0.75rem;
+  /* Calm obsidian theme — one accent, neutral surfaces */
+  --background: #0a0b0e;
+  --foreground: #ececf1;
+  --card: #131419;
+  --card-foreground: #ececf1;
+  --popover: #131419;
+  --popover-foreground: #ececf1;
+  --primary: #34e0e8;
+  --primary-foreground: #06121a;
+  --secondary: #1a1c22;
+  --secondary-foreground: #ececf1;
+  --muted: #15171c;
+  --muted-foreground: #8b90a0;
+  --accent: #34e0e8;
+  --accent-foreground: #06121a;
+  --destructive: #ff5470;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.07);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: #34e0e8;
+  --radius: 0.9rem;
 }
 
 @layer base {
   * {
     border-color: var(--border);
   }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
+    /* Quiet obsidian base with one faint accent bloom */
     background-color: var(--background);
+    background-image: radial-gradient(
+      1100px 700px at 78% -12%,
+      rgba(52, 224, 232, 0.05),
+      transparent 62%
+    );
+    background-attachment: fixed;
     color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: rgba(52, 224, 232, 0.28);
+    color: #fff;
+  }
+
+  /* Sleek, quiet scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  [role="button"] {
+    transition: color 0.18s ease, background-color 0.18s ease,
+      border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease,
+      opacity 0.18s ease;
+  }
+}
+
+@layer components {
+  /* Flat glass surfaces — one elevation, thin border, no rainbow */
+  .glass {
+    background-color: rgba(255, 255, 255, 0.035);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+  }
+
+  .surface {
+    background-color: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-elev);
+  }
+  /* subtle accent on hover, no permanent glow */
+  .surface-hover:hover {
+    border-color: rgba(255, 255, 255, 0.14);
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  /* Quiet status pills */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .pill-pos {
+    color: #76e9a8;
+    background-color: rgba(61, 220, 132, 0.1);
+    border-color: rgba(61, 220, 132, 0.22);
+  }
+  .pill-neg {
+    color: #ff8298;
+    background-color: rgba(255, 84, 112, 0.1);
+    border-color: rgba(255, 84, 112, 0.24);
+  }
+  .pill-accent {
+    color: #7ceef3;
+    background-color: rgba(52, 224, 232, 0.1);
+    border-color: rgba(52, 224, 232, 0.24);
+  }
+  .pill-muted {
+    color: #9aa0b0;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Eyebrow / micro label */
+  .eyebrow {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted-foreground);
+  }
+
+  input,
+  textarea,
+  select {
+    backdrop-filter: blur(4px);
   }
 }

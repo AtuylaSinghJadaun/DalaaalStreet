@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAppStore } from '@/store/useGlobalStore'
+import { useAppStore, type Trade } from '@/store/useGlobalStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,7 @@ import { ArrowDownRight, ArrowUpRight, Clock, CheckCircle2, XCircle } from 'luci
 
 export default function TradingRoom() {
   const router = useRouter()
-  const { globalState, companies, teams, rounds, roundPrices, holdings, trades } = useAppStore()
+  const { globalState, companies, teams, rounds, roundPrices, holdings, trades, isInitialized } = useAppStore()
   const [teamId, setTeamId] = useState<string | null>(null)
 
   const [tradeCompany, setTradeCompany] = useState<string>('')
@@ -33,6 +33,14 @@ export default function TradingRoom() {
     }
   }, [router])
 
+  // Clear a stale session (team deleted by a reset) instead of going blank.
+  useEffect(() => {
+    if (isInitialized && teamId && !teams.some(t => t.id === teamId)) {
+      localStorage.removeItem('team_id')
+      router.push('/')
+    }
+  }, [isInitialized, teamId, teams, router])
+
   useEffect(() => {
     if (globalState && !globalState.current_phase.startsWith('round_')) {
       if (globalState.current_phase === 'ended') router.push('/ended')
@@ -42,7 +50,16 @@ export default function TradingRoom() {
   }, [globalState, router])
 
   const myTeam = teams.find(t => t.id === teamId)
-  if (!myTeam) return null
+  if (!myTeam) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-foreground">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+        <p className="text-sm text-muted-foreground">
+          {isInitialized ? 'Loading your session…' : 'Connecting to the market…'}
+        </p>
+      </div>
+    )
+  }
 
   // Determine active round
   const currentRoundNum = parseInt(globalState?.current_phase.replace('round_', '') || '1')

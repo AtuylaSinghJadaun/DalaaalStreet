@@ -12,7 +12,7 @@ import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts'
 
 export default function IPORoom() {
   const router = useRouter()
-  const { globalState, companies, teams, holdings } = useAppStore()
+  const { globalState, companies, teams, holdings, isInitialized } = useAppStore()
   const [teamId, setTeamId] = useState<string | null>(null)
   const [buyQuantities, setBuyQuantities] = useState<Record<string, number>>({})
 
@@ -23,6 +23,15 @@ export default function IPORoom() {
       else setTeamId(savedTeamId)
     }
   }, [router])
+
+  // If the saved team no longer exists (e.g. the street was reset & rebuilt),
+  // clear the stale id and send the user back to login instead of going blank.
+  useEffect(() => {
+    if (isInitialized && teamId && !teams.some(t => t.id === teamId)) {
+      localStorage.removeItem('team_id')
+      router.push('/')
+    }
+  }, [isInitialized, teamId, teams, router])
 
   useEffect(() => {
     if (globalState && globalState.current_phase !== 'ipo') {
@@ -82,7 +91,18 @@ export default function IPORoom() {
   // Small dummy chart data just for visual effect in IPO
   const dummyData = [{ value: 100 }, { value: 105 }, { value: 102 }, { value: 110 }]
 
-  if (!myTeam) return null
+  // While the store loads (or we're about to redirect a stale session), show a
+  // loader rather than a blank screen.
+  if (!myTeam) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-foreground">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+        <p className="text-sm text-muted-foreground">
+          {isInitialized ? 'Loading your session…' : 'Connecting to the market…'}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen p-6 bg-background text-foreground pb-24">

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 
 export default function EndedRoom() {
   const router = useRouter()
-  const { globalState, teams, holdings, companies, roundPrices, rounds } = useAppStore()
+  const { globalState, teams, holdings, companies, roundPrices, rounds, isInitialized } = useAppStore()
   const [teamId, setTeamId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -20,6 +20,14 @@ export default function EndedRoom() {
     }
   }, [router])
 
+  // Clear a stale session (team deleted by a reset) instead of going blank.
+  useEffect(() => {
+    if (isInitialized && teamId && !teams.some(t => t.id === teamId)) {
+      localStorage.removeItem('team_id')
+      router.push('/')
+    }
+  }, [isInitialized, teamId, teams, router])
+
   useEffect(() => {
     if (globalState?.current_phase === 'auction') {
       router.push('/auction')
@@ -29,7 +37,16 @@ export default function EndedRoom() {
   }, [globalState, router])
 
   const myTeam = teams.find(t => t.id === teamId)
-  if (!myTeam) return null
+  if (!myTeam) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-foreground">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+        <p className="text-sm text-muted-foreground">
+          {isInitialized ? 'Loading your session…' : 'Connecting…'}
+        </p>
+      </div>
+    )
+  }
 
   // Determine final prices
   // If we assume final round is the last round, or we can just find the max round number

@@ -12,12 +12,12 @@ import { Timer, Trophy, CheckCircle } from 'lucide-react'
 
 export default function AuctionRoom() {
   const router = useRouter()
-  const { globalState, teams, auctions, bids, inventory } = useAppStore()
+  const { globalState, teams, auctions, bids, inventory, isInitialized } = useAppStore()
   const [teamId, setTeamId] = useState<string | null>(null)
 
   const [customBid, setCustomBid] = useState<string>('')
   const [countdown, setCountdown] = useState<number | null>(null)
-  
+
   // Timer ref to manage countdown
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -28,6 +28,14 @@ export default function AuctionRoom() {
       else setTeamId(savedTeamId)
     }
   }, [router])
+
+  // Clear a stale session (team deleted by a reset) instead of going blank.
+  useEffect(() => {
+    if (isInitialized && teamId && !teams.some(t => t.id === teamId)) {
+      localStorage.removeItem('team_id')
+      router.push('/')
+    }
+  }, [isInitialized, teamId, teams, router])
 
   useEffect(() => {
     if (globalState && globalState.current_phase !== 'auction') {
@@ -62,7 +70,7 @@ export default function AuctionRoom() {
           // or we just show "Going once..." etc.
           return 0
         })
-      }, 1000)
+      }, 2000)
     } else if (activeAuction && !lastBid) {
       setCountdown(null)
     }
@@ -73,7 +81,16 @@ export default function AuctionRoom() {
   }, [lastBid?.id, activeAuction?.id])
 
 
-  if (!myTeam) return null
+  if (!myTeam) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-foreground">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+        <p className="text-sm text-muted-foreground">
+          {isInitialized ? 'Loading your session…' : 'Connecting to the market…'}
+        </p>
+      </div>
+    )
+  }
 
   const handleBid = async (amount: number) => {
     if (!activeAuction) return

@@ -18,10 +18,16 @@ export default function ParticipantLogin() {
     if (typeof window !== 'undefined') {
       const savedTeamId = localStorage.getItem('team_id')
       if (savedTeamId && isInitialized && globalState) {
-        redirectBasedOnPhase(globalState.current_phase)
+        // Only auto-resume if the saved team still exists. After a full reset
+        // the old id is stale, so clear it and stay on the login screen.
+        if (teams.some(t => t.id === savedTeamId)) {
+          redirectBasedOnPhase(globalState.current_phase)
+        } else {
+          localStorage.removeItem('team_id')
+        }
       }
     }
-  }, [isInitialized, globalState, router])
+  }, [isInitialized, globalState, teams, router])
 
   const redirectBasedOnPhase = (phase: string) => {
     switch (phase) {
