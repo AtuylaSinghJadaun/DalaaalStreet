@@ -10,6 +10,13 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase/client'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { MonitorPlay } from 'lucide-react'
+
+const openStage = () => {
+  if (typeof window !== 'undefined') {
+    window.open('/stage', 'dalaaal_stage', 'noopener')
+  }
+}
 
 export default function AdminAuctions() {
   const { auctions, teams, bids, globalState } = useAppStore()
@@ -48,6 +55,8 @@ export default function AdminAuctions() {
     try {
       await supabase.from('auctions').update({ status: 'active' }).eq('id', id)
       toast.success('Auction started!')
+      // Launch the big-screen stage view.
+      openStage()
     } catch (err: any) {
       toast.error(err.message)
     }
@@ -85,15 +94,22 @@ export default function AdminAuctions() {
 
   return (
     <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Auction Management</h1>
-        <p className="text-muted-foreground mt-1">Manage live auctions. Only one auction can be active at a time.</p>
-        {globalState?.current_phase !== 'auction' && (
-          <div className="mt-4 p-4 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 rounded-lg">
-            <strong>Note:</strong> The system is currently NOT in the Auction phase. Participants won't see these until you switch the phase to 'Auction'.
-          </div>
-        )}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Auction Management</h1>
+          <p className="text-muted-foreground mt-1">Manage live auctions. Only one auction can be active at a time.</p>
+        </div>
+        <Button variant="outline" onClick={openStage} className="gap-2">
+          <MonitorPlay className="h-4 w-4" />
+          Open Big Screen
+        </Button>
       </div>
+
+      {globalState?.current_phase !== 'auction' && (
+        <div className="p-4 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 rounded-lg">
+          <strong>Note:</strong> The system is currently NOT in the Auction phase. Participants won't see these until you switch the phase to 'Auction'.
+        </div>
+      )}
 
       <Card className="bg-card border-border shadow-md max-w-2xl">
         <CardHeader>

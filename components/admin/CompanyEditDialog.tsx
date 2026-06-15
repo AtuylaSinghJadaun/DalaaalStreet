@@ -130,7 +130,7 @@ export default function CompanyEditDialog({ company, isOpen, onClose }: CompanyE
                   name="ipo_price"
                   type="number"
                   step="0.01"
-                  value={formData.ipo_price}
+                  value={formData.ipo_price || ''}
                   onChange={handleInputChange}
                   className="bg-white/5 border border-cyan-500/30 focus:border-cyan-400 text-white placeholder:text-gray-500"
                 />
@@ -141,7 +141,7 @@ export default function CompanyEditDialog({ company, isOpen, onClose }: CompanyE
                   id="available_shares"
                   name="available_shares"
                   type="number"
-                  value={formData.available_shares}
+                  value={formData.available_shares || ''}
                   onChange={handleInputChange}
                   className="bg-white/5 border border-cyan-500/30 focus:border-cyan-400 text-white placeholder:text-gray-500"
                 />
@@ -154,7 +154,7 @@ export default function CompanyEditDialog({ company, isOpen, onClose }: CompanyE
                 id="initial_valuation"
                 name="initial_valuation"
                 type="number"
-                value={formData.initial_valuation}
+                value={formData.initial_valuation || ''}
                 onChange={handleInputChange}
                 className="bg-white/5 border border-cyan-500/30 focus:border-cyan-400 text-white placeholder:text-gray-500"
               />

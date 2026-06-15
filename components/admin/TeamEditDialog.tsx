@@ -52,7 +52,6 @@ export default function TeamEditDialog({ team, isOpen, onClose }: TeamEditDialog
         .update({
           name: formData.name,
           cash_balance: formData.cash_balance,
-          ipo_participant: formData.ipo_participant,
           locked: formData.locked,
         })
         .eq('id', formData.id)
@@ -167,31 +166,10 @@ export default function TeamEditDialog({ team, isOpen, onClose }: TeamEditDialog
                 name="cash_balance"
                 type="number"
                 step="1000"
-                value={formData.cash_balance}
+                value={formData.cash_balance || ''}
                 onChange={handleInputChange}
                 className="bg-background"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label>
-                <input
-                  type="checkbox"
-                  checked={formData.ipo_participant}
-                  onChange={(e) => {
-                    if (!formData) return
-                    setFormData({
-                      ...formData,
-                      ipo_participant: e.target.checked,
-                    })
-                  }}
-                  className="mr-2"
-                />
-                IPO Participant
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Whether this team participated in the IPO phase
-              </p>
             </div>
 
             <div className="space-y-2">

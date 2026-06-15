@@ -58,18 +58,6 @@ export default function CompaniesEditor() {
                     ₹{company.ipo_price.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="eyebrow">Shares</span>
-                  <span className="font-mono text-sm tabular-nums text-gray-300">
-                    {company.available_shares.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="eyebrow">Valuation</span>
-                  <span className="font-display text-sm font-semibold tabular-nums text-[#76e9a8]">
-                    ₹{(company.initial_valuation / 1000000).toFixed(1)}M
-                  </span>
-                </div>
               </div>
 
               {/* Action */}

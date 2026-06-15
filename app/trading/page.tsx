@@ -4,14 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppStore, type Trade } from '@/store/useGlobalStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase/client'
-import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts'
+import StockChart from '@/components/StockChart'
 import { ArrowDownRight, ArrowUpRight, Clock, CheckCircle2, XCircle } from 'lucide-react'
 
 export default function TradingRoom() {
@@ -24,6 +23,7 @@ export default function TradingRoom() {
   const [tradePrice, setTradePrice] = useState<number | ''>('')
   const [tradeTargetTeam, setTradeTargetTeam] = useState<string>('')
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy')
+  const [requestTab, setRequestTab] = useState<'incoming' | 'outgoing'>('incoming')
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -69,10 +69,28 @@ export default function TradingRoom() {
     if (!currentRound) return 0
     const priceRecord = roundPrices.find(rp => rp.round_id === currentRound.id && rp.company_id === companyId)
     if (priceRecord) return priceRecord.mean_price
-    
+
     // Fallback to IPO price
     const company = companies.find(c => c.id === companyId)
     return company?.ipo_price || 0
+  }
+
+  // Build the price series for a company: IPO price followed by each round's
+  // mean price, up to and including the current round. This drives the chart
+  // that fluctuates as rounds progress.
+  const getCompanyPriceHistory = (companyId: string) => {
+    const company = companies.find(c => c.id === companyId)
+    const series: { label: string; value: number }[] = [
+      { label: 'IPO', value: company?.ipo_price || 0 }
+    ]
+    rounds
+      .filter(r => r.round_number <= currentRoundNum)
+      .sort((a, b) => a.round_number - b.round_number)
+      .forEach(r => {
+        const priceRecord = roundPrices.find(rp => rp.round_id === r.id && rp.company_id === companyId)
+        if (priceRecord) series.push({ label: `R${r.round_number}`, value: priceRecord.mean_price })
+      })
+    return series
   }
 
   const handleCreateTrade = async () => {
@@ -241,13 +259,19 @@ export default function TradingRoom() {
                   const meanPrice = getCompanyMeanPrice(company.id)
                   const minP = meanPrice * 0.8
                   const maxP = meanPrice * 1.2
+                  const history = getCompanyPriceHistory(company.id)
+                  const firstPrice = history[0]?.value || 0
+                  const isUp = meanPrice >= firstPrice
                   return (
                     <div key={company.id} className="p-4 rounded-lg bg-secondary/50 border border-border/50">
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-bold">{company.name}</h3>
                         <span className="font-mono font-bold text-lg">₹{meanPrice.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-xs text-muted-foreground mb-4">
+                      <div className="h-[80px] w-full mb-3">
+                        <StockChart data={history} isUp={isUp} variant="compact" />
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Min: ₹{minP.toFixed(2)}</span>
                         <span>Max: ₹{maxP.toFixed(2)}</span>
                       </div>
@@ -288,11 +312,11 @@ export default function TradingRoom() {
                 </div>
                 <div className="space-y-2">
                   <Label>Qty</Label>
-                  <Input type="number" value={tradeQty} onChange={e => setTradeQty(parseInt(e.target.value))} />
+                  <Input type="number" value={tradeQty} onChange={e => setTradeQty(e.target.value === '' ? '' : parseInt(e.target.value))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Price</Label>
-                  <Input type="number" value={tradePrice} onChange={e => setTradePrice(parseFloat(e.target.value))} />
+                  <Input type="number" value={tradePrice} onChange={e => setTradePrice(e.target.value === '' ? '' : parseFloat(e.target.value))} />
                 </div>
                 <div className="space-y-2 col-span-2 md:col-span-1">
                   <Label>Target Team</Label>
@@ -317,55 +341,108 @@ export default function TradingRoom() {
               <CardTitle>Trade Requests</CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="incoming">
-                <TabsList className="w-full grid grid-cols-2 mb-4">
-                  <TabsTrigger value="incoming">Incoming ({incomingTrades.length})</TabsTrigger>
-                  <TabsTrigger value="outgoing">Outgoing ({outgoingTrades.length})</TabsTrigger>
-                </TabsList>
-                <TabsContent value="incoming" className="space-y-3">
-                  {incomingTrades.length === 0 && <p className="text-muted-foreground text-sm text-center py-4">No incoming requests</p>}
-                  {incomingTrades.map(trade => {
-                    const c = companies.find(x => x.id === trade.company_id)
-                    const sender = teams.find(x => x.id === trade.sender_team_id)
-                    const isBuy = trade.quantity > 0
-                    return (
-                      <div key={trade.id} className="p-3 border border-border rounded-lg bg-secondary/30">
-                        <p className="text-sm">
-                          <span className="font-bold">{sender?.name}</span> wants to <span className="font-bold text-primary">{isBuy ? 'BUY from you' : 'SELL to you'}</span>
-                        </p>
-                        <p className="text-lg font-mono font-bold my-1">
-                          {Math.abs(trade.quantity)} {c?.name} @ ₹{trade.price}
-                        </p>
-                        <div className="flex gap-2 mt-2">
-                          <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => handleRespondToTrade(trade, true)}>Accept</Button>
-                          <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleRespondToTrade(trade, false)}>Reject</Button>
+              {/* Segmented toggle (state-driven, no flaky primitive) */}
+              <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-secondary/40 p-1 mb-4">
+                <button
+                  onClick={() => setRequestTab('incoming')}
+                  className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+                    requestTab === 'incoming'
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Incoming
+                  <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 text-xs tabular-nums">
+                    {incomingTrades.length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setRequestTab('outgoing')}
+                  className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+                    requestTab === 'outgoing'
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Outgoing
+                  <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 text-xs tabular-nums">
+                    {outgoingTrades.length}
+                  </span>
+                </button>
+              </div>
+
+              {/* Scrollable list so many requests never overflow the card */}
+              <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+                {requestTab === 'incoming' && (
+                  <>
+                    {incomingTrades.length === 0 && (
+                      <p className="py-6 text-center text-sm text-muted-foreground">No incoming requests</p>
+                    )}
+                    {incomingTrades.map(trade => {
+                      const c = companies.find(x => x.id === trade.company_id)
+                      const sender = teams.find(x => x.id === trade.sender_team_id)
+                      const isBuy = trade.quantity > 0
+                      return (
+                        <div key={trade.id} className="rounded-lg border border-border bg-secondary/30 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-semibold">{sender?.name ?? 'Unknown team'}</span>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide ${
+                              isBuy ? 'bg-green-500/15 text-green-400' : 'bg-[#ff5470]/15 text-[#ff8298]'
+                            }`}>
+                              {isBuy ? 'Wants to buy' : 'Wants to sell'}
+                            </span>
+                          </div>
+                          <p className="mt-2 break-words font-mono text-base font-bold leading-snug">
+                            {Math.abs(trade.quantity)} × {c?.name ?? '—'}
+                            <span className="text-muted-foreground"> @ </span>
+                            ₹{trade.price.toLocaleString()}
+                          </p>
+                          <div className="mt-3 flex gap-2">
+                            <Button size="sm" className="flex-1 bg-green-600 text-white hover:bg-green-700" onClick={() => handleRespondToTrade(trade, true)}>Accept</Button>
+                            <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleRespondToTrade(trade, false)}>Reject</Button>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </TabsContent>
-                <TabsContent value="outgoing" className="space-y-3">
-                  {outgoingTrades.length === 0 && <p className="text-muted-foreground text-sm text-center py-4">No pending outgoing requests</p>}
-                  {outgoingTrades.map(trade => {
-                    const c = companies.find(x => x.id === trade.company_id)
-                    const target = teams.find(x => x.id === trade.receiver_team_id)
-                    const isBuy = trade.quantity > 0
-                    return (
-                      <div key={trade.id} className="p-3 border border-border rounded-lg bg-secondary/30">
-                        <p className="text-sm">
-                          You want to <span className="font-bold text-primary">{isBuy ? 'BUY from' : 'SELL to'}</span> <span className="font-bold">{target?.name}</span>
-                        </p>
-                        <p className="text-lg font-mono font-bold my-1">
-                          {Math.abs(trade.quantity)} {c?.name} @ ₹{trade.price}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
-                          <Clock className="w-3 h-3" /> Pending Target Approval
-                        </p>
-                      </div>
-                    )
-                  })}
-                </TabsContent>
-              </Tabs>
+                      )
+                    })}
+                  </>
+                )}
+
+                {requestTab === 'outgoing' && (
+                  <>
+                    {outgoingTrades.length === 0 && (
+                      <p className="py-6 text-center text-sm text-muted-foreground">No pending outgoing requests</p>
+                    )}
+                    {outgoingTrades.map(trade => {
+                      const c = companies.find(x => x.id === trade.company_id)
+                      const target = teams.find(x => x.id === trade.receiver_team_id)
+                      const isBuy = trade.quantity > 0
+                      return (
+                        <div key={trade.id} className="rounded-lg border border-border bg-secondary/30 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm">
+                              <span className="text-muted-foreground">To </span>
+                              <span className="font-semibold">{target?.name ?? 'Unknown team'}</span>
+                            </span>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide ${
+                              isBuy ? 'bg-green-500/15 text-green-400' : 'bg-[#ff5470]/15 text-[#ff8298]'
+                            }`}>
+                              {isBuy ? 'Buy' : 'Sell'}
+                            </span>
+                          </div>
+                          <p className="mt-2 break-words font-mono text-base font-bold leading-snug">
+                            {Math.abs(trade.quantity)} × {c?.name ?? '—'}
+                            <span className="text-muted-foreground"> @ </span>
+                            ₹{trade.price.toLocaleString()}
+                          </p>
+                          <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3 shrink-0" /> Pending target approval
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
 

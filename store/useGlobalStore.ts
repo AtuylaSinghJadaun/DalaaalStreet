@@ -3,6 +3,11 @@ import { supabase } from '@/lib/supabase/client'
 
 export type GlobalPhase = 'setup' | 'waiting_for_ipo' | 'ipo' | 'round_1' | 'round_2' | 'round_3' | 'round_4' | 'round_5' | 'ended' | 'auction'
 
+// Sentinel round_number used to store the dedicated "Endgame" price set. It is
+// not a playable round — it holds the final liquidation prices used when the
+// game ends. Kept out of the normal round flow (game controls, trading, etc.).
+export const ENDGAME_ROUND_NUMBER = 9999
+
 export interface GlobalState {
   current_phase: GlobalPhase
   ipo_min_spend: number

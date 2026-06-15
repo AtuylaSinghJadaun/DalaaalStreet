@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAppStore } from '@/store/useGlobalStore'
+import { useAppStore, ENDGAME_ROUND_NUMBER } from '@/store/useGlobalStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip } from 'recharts'
 
 export default function EndedRoom() {
   const router = useRouter()
@@ -48,23 +49,54 @@ export default function EndedRoom() {
     )
   }
 
-  // Determine final prices
-  // If we assume final round is the last round, or we can just find the max round number
-  const finalRoundNum = Math.max(...rounds.map(r => r.round_number))
-  const finalRound = rounds.find(r => r.round_number === finalRoundNum)
-  
+  // Determine final prices. Prefer the dedicated Endgame price set; otherwise
+  // fall back to the last played round.
+  const playableRounds = rounds.filter(r => r.round_number !== ENDGAME_ROUND_NUMBER)
+  const endgameRound = rounds.find(r => r.round_number === ENDGAME_ROUND_NUMBER)
+  const lastPlayedRound = playableRounds.length
+    ? playableRounds.reduce((a, b) => (a.round_number > b.round_number ? a : b))
+    : undefined
+  const finalRound = endgameRound || lastPlayedRound
+
   const getCompanyFinalPrice = (companyId: string) => {
     if (!finalRound) return 0
     const priceRecord = roundPrices.find(rp => rp.round_id === finalRound.id && rp.company_id === companyId)
     return priceRecord ? priceRecord.mean_price : 0
   }
 
+  // Full price history per company: IPO price, then every played round's mean
+  // price, ending at the Endgame (final liquidation) price.
+  const getCompanyPriceHistory = (companyId: string) => {
+    const company = companies.find(c => c.id === companyId)
+    const series: { label: string; price: number }[] = [
+      { label: 'IPO', price: company?.ipo_price || 0 }
+    ]
+    ;[...playableRounds]
+      .sort((a, b) => a.round_number - b.round_number)
+      .forEach(r => {
+        const priceRecord = roundPrices.find(rp => rp.round_id === r.id && rp.company_id === companyId)
+        if (priceRecord) series.push({ label: `Round ${r.round_number}`, price: priceRecord.mean_price })
+      })
+    if (endgameRound) {
+      const endPrice = roundPrices.find(rp => rp.round_id === endgameRound.id && rp.company_id === companyId)
+      if (endPrice) series.push({ label: 'Endgame', price: endPrice.mean_price })
+    }
+    return series
+  }
+
   // Calculate final leaderboards
   // For each team, Net Worth = Cash + sum(holding.qty * finalPrice)
-  const leaderboard = teams.filter(t => t.ipo_participant && !t.locked).map(team => {
+  const leaderboard = teams.filter(t => {
+    // Every active (non-locked) team belongs on the final leaderboard. A team
+    // that sold all its shares still has a cash balance (its net worth), so we
+    // must not filter on holdings or IPO participation.
+    return !t.locked
+  }).map(team => {
+    // Holdings were liquidated into cash_balance when the game ended, so the
+    // stored balance is the final net worth.
     const teamHoldings = holdings.filter(h => h.team_id === team.id)
     const portfolioValue = teamHoldings.reduce((sum, h) => sum + (h.quantity * getCompanyFinalPrice(h.company_id)), 0)
-    const netWorth = team.cash_balance + portfolioValue
+    const netWorth = team.cash_balance
     const profit = netWorth - (globalState?.initial_team_balance || 1000000)
     
     return {
@@ -113,6 +145,49 @@ export default function EndedRoom() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="bg-card border-border shadow-md mb-8">
+        <CardHeader>
+          <CardTitle>Stock Price History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {companies.map(company => {
+              const history = getCompanyPriceHistory(company.id)
+              const finalPrice = getCompanyFinalPrice(company.id)
+              const firstPrice = history[0]?.price || 0
+              const isUp = finalPrice >= firstPrice
+              const color = isUp ? '#22c55e' : '#ff5470'
+              return (
+                <div key={company.id} className="p-4 rounded-lg bg-secondary/30 border border-border/50">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-bold">{company.name}</h3>
+                    <span className="font-mono font-bold text-lg" style={{ color }}>₹{finalPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="h-[180px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={history} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                        <YAxis domain={['dataMin - 5', 'dataMax + 5']} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                        <Tooltip
+                          contentStyle={{
+                            background: 'var(--card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '0.5rem',
+                            fontSize: '0.8rem'
+                          }}
+                          formatter={(value: any) => [`₹${Number(value).toFixed(2)}`, 'Price']}
+                        />
+                        <Line type="monotone" dataKey="price" stroke={color} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="bg-card border-border shadow-md">
         <CardHeader>

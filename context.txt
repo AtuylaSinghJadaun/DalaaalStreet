@@ -1,0 +1,373 @@
+==============================================================================
+  DALAAALSTREET — TECHNICAL CONTEXT FOR AI CODING AGENTS
+  (Read this fully before editing. It describes architecture, schema, data
+   flow, invariants, and gotchas so you don't break existing behavior.)
+==============================================================================
+
+------------------------------------------------------------------------------
+0. WHAT THIS PROJECT IS (ONE LINE)
+------------------------------------------------------------------------------
+A real-time, multiplayer stock-trading competition game. One admin configures
+and drives the game; many "teams" play on their own devices. State is shared
+through a single Supabase (Postgres) database with realtime subscriptions, and
+mirrored into a single Zustand store on every client.
+
+------------------------------------------------------------------------------
+1. TECH STACK
+------------------------------------------------------------------------------
+- Next.js 16.2.9 (App Router, all pages are client components: "use client").
+- React 19.2.4.
+- Zustand 5 for global client state (store/useGlobalStore.ts).
+- Supabase JS 2.x (@supabase/supabase-js) for DB + realtime (postgres_changes).
+- Recharts 3.x for price/portfolio charts.
+- Tailwind CSS 4 + a small shadcn/ui component set (components/ui/*).
+- sonner for toasts; lucide-react for icons.
+
+!!! CRITICAL BUILD/DOCS NOTE (from AGENTS.md / CLAUDE.md) !!!
+This repo pins a Next.js version whose APIs/conventions MAY DIFFER from your
+training data ("This is NOT the Next.js you know"). Before writing anything
+Next-specific (routing, config, server/client boundaries, metadata, etc.),
+READ the bundled docs under node_modules/next/dist/docs/ and honor any
+deprecation notices. Do not assume older Next.js patterns.
+
+------------------------------------------------------------------------------
+2. HIGH-LEVEL ARCHITECTURE
+------------------------------------------------------------------------------
+- There is NO custom backend / API layer. Clients talk to Supabase directly
+  using the anon key (lib/supabase/client.ts). All "business logic" lives in
+  the client components that perform sequential supabase.from(...) calls.
+- A single Zustand store (useAppStore) holds ALL tables in memory. It is
+  populated once by initialize() and then kept in sync by subscribeToRealtime()
+  which listens to postgres_changes on every table and patches the arrays on
+  INSERT/UPDATE/DELETE.
+- components/StoreInitializer.tsx (mounted in app/layout.tsx) calls
+  initialize() + subscribeToRealtime() on app start. Every page just reads from
+  useAppStore(); it does not fetch on its own.
+- Because all clients share the same DB and subscribe to realtime, any write by
+  any client (team or admin) propagates to all others within ~instant.
+
+Implication for editing: to change game behavior you typically (a) write to
+Supabase, and the realtime subscription updates every store automatically. Do
+NOT also manually mutate the store after a DB write — let realtime do it, to
+avoid double-application. (Existing code follows this pattern.)
+
+------------------------------------------------------------------------------
+3. AUTH MODEL (PROTOTYPE-GRADE, NOT SECURE)
+------------------------------------------------------------------------------
+- TEAMS: log in at app/page.tsx by typing a 6-digit teams.team_code. On
+  success the team's UUID is stored in localStorage as "team_id". There is no
+  password/session token. Every team page reads localStorage "team_id",
+  finds that team in the store, and guards by phase.
+- ADMIN: app/admin/page.tsx compares the typed passcode to a HARDCODED string
+  ('5%3Q9vxmG@#0Xq') and, on match, sets localStorage "admin_auth" = "true".
+  Admin pages (and app/admin/layout.tsx) gate on that flag and redirect to
+  /admin otherwise.
+- Stale-session handling: every team page checks that the saved team_id still
+  exists in teams[]; if not (e.g. after a hard reset), it clears localStorage
+  and routes back to "/". Preserve this pattern when adding pages.
+
+------------------------------------------------------------------------------
+4. PHASES (THE STATE MACHINE)
+------------------------------------------------------------------------------
+global_state.current_phase (single row, id = 1) is the master switch. Type
+GlobalPhase in the store:
+
+  'setup' | 'waiting_for_ipo' | 'ipo' |
+  'round_1' | 'round_2' | 'round_3' | 'round_4' | 'round_5' |
+  'ended' | 'auction'
+
+NOTE: the literal union lists round_1..round_5, but ROUND COUNT IS NOT CAPPED
+in practice. Round phases are derived dynamically from the rounds table
+(round_N where N = rounds.round_number). If you add UI that enumerates phases,
+derive from the rounds table, not from this union. (MainDashboard already does.)
+
+Transitions are driven ONLY by the admin in components/admin/MainDashboard.tsx
+via handlePhaseChange(newPhase) which updates global_state.current_phase. The
+Game Controls render one button per phase and only enable the next valid step
+(button.activePhase === currentPhase).
+
+Per-page phase guards: each team page useEffect-redirects if current_phase is
+not what it expects (e.g. /trading bounces to /ended when phase becomes
+'ended'). app/page.tsx redirectBasedOnPhase() maps phase -> route. Keep these
+guards consistent if you add/rename phases.
+
+------------------------------------------------------------------------------
+5. ROUTES (app/) AND THEIR ROLE
+------------------------------------------------------------------------------
+- app/layout.tsx ............ root layout; mounts StoreInitializer + Toaster.
+- app/page.tsx .............. team login (team_code). Marks ipo_participant
+                              during IPO window; blocks non-participants after.
+- app/waiting/page.tsx ...... pre-IPO lobby (phases setup/waiting_for_ipo).
+- app/ipo/page.tsx .......... IPO buying. Buys at companies.ipo_price.
+- app/trading/page.tsx ...... trading floor for round_* phases. Market watch,
+                              per-company price-history charts, peer trade
+                              requests with +/-20% band, portfolio/P&L.
+- app/ended/page.tsx ........ final leaderboard + price-history graphs (IPO ->
+                              rounds -> Endgame) with hover tooltips.
+- app/auction/page.tsx ...... team auction view: bid + inventory.
+- app/stage/page.tsx ........ big-screen auctioneer display (projector view).
+- app/admin/page.tsx ........ admin passcode login.
+- app/admin/layout.tsx ...... admin auth gate.
+- app/admin/dashboard/page.tsx .. renders SetupWizard if phase==='setup', else
+                                  MainDashboard.
+- app/admin/properties/page.tsx . PropertiesPanel (tabs: Companies/Rounds/Teams)
+- app/admin/auctions/page.tsx ... create/start/end auctions; opens /stage.
+
+------------------------------------------------------------------------------
+6. ADMIN COMPONENTS (components/admin/)
+------------------------------------------------------------------------------
+- MainDashboard.tsx ..... command center: stats, dynamic phase buttons,
+                          liquidateHoldings() on End Game, opens ResetDialog.
+- SetupWizard.tsx ....... 6-step game creation (see Section 9).
+- PropertiesPanel.tsx ... tab switcher for the three editors.
+- CompaniesEditor.tsx / CompanyEditDialog.tsx ... edit companies.
+- RoundsEditor.tsx ...... list with IPO card (first), playable rounds, Endgame
+                          card (last). Opens RoundEditDialog or SpecialPriceDialog.
+- RoundEditDialog.tsx ... create/edit a playable round + its round_prices.
+- SpecialPriceDialog.tsx  edit IPO prices (companies.ipo_price) OR Endgame
+                          prices (round_prices on the sentinel round).
+- TeamsEditor.tsx / TeamEditDialog.tsx ... edit teams.
+- ResetDialog.tsx ....... soft reset (clear progress) / hard reset (wipe all).
+
+------------------------------------------------------------------------------
+7. DATABASE SCHEMA (Supabase / Postgres)
+------------------------------------------------------------------------------
+All tables are read into the store by initialize() and kept live by
+subscribeToRealtime(). Columns below are inferred from the code's
+inserts/updates/selects and the store interfaces. UUID primary keys unless
+noted. (There are no SQL migration files checked in besides the helper scripts
+in Section 11; the schema is created in Supabase directly.)
+
+global_state   (SINGLE ROW, id = 1)
+  - id (int/uuid; code updates .eq('id', 1))
+  - current_phase            text   (GlobalPhase value)
+  - ipo_min_spend            numeric
+  - initial_team_balance     numeric
+
+teams
+  - id                       uuid
+  - team_number              int    (sequential 1..N)
+  - team_code                text   (6-digit login code, unique in practice)
+  - name                     text
+  - cash_balance             numeric
+  - ipo_participant          bool   (set true on IPO-window login)
+  - locked                   bool   (soft-reset / exclusion flag)
+
+companies
+  - id                       uuid
+  - name                     text
+  - description              text
+  - industry                 text
+  - logo_url                 text   (stored; not rendered anywhere currently)
+  - initial_valuation        numeric
+  - ipo_price                numeric  (THE IPO/starting price; source of truth)
+  - available_shares         numeric  (default 10000; display only, not enforced)
+  - end_price                numeric  (LEGACY/VESTIGIAL — see Section 10)
+
+rounds
+  - id                       uuid
+  - round_number             int    (1..N for playable rounds; 9999 = Endgame)
+  - title                    text
+  - event_description        text   (news headline shown to teams)
+  - is_active                bool
+
+round_prices               (mean price per company per round)
+  - id                       uuid
+  - round_id                 uuid -> rounds.id
+  - company_id               uuid -> companies.id
+  - mean_price               numeric
+
+holdings                   (a team's position in a company)
+  - id                       uuid
+  - team_id                  uuid -> teams.id
+  - company_id               uuid -> companies.id
+  - quantity                 numeric
+  - average_purchase_price   numeric  (weighted average cost basis)
+
+trades                     (peer-to-peer trade request)
+  - id                       uuid
+  - sender_team_id           uuid -> teams.id  (initiator)
+  - receiver_team_id         uuid -> teams.id  (counterparty)
+  - company_id               uuid -> companies.id
+  - quantity                 numeric  (SIGNED: >0 = sender wants to BUY from
+                                       receiver; <0 = sender wants to SELL to
+                                       receiver)
+  - price                    numeric  (per-share; must be within +/-20% band)
+  - status                   text     ('pending'|'accepted'|'rejected'; the
+                                       store type also allows 'expired')
+  - expires_at               timestamptz (created_at + 3 minutes)
+
+auctions
+  - id                       uuid
+  - item_name                text
+  - description              text
+  - starting_bid             numeric
+  - current_highest_bid      numeric  (initialized to starting_bid on create)
+  - highest_bidder_id        uuid|null -> teams.id
+  - status                   text     ('pending'|'active'|'ended')
+  - ends_at                  timestamptz|null (NOT used; countdown is client-side)
+
+bids
+  - id                       uuid
+  - auction_id               uuid -> auctions.id
+  - team_id                  uuid -> teams.id
+  - amount                   numeric
+  - created_at               timestamptz (drives the client countdown reset)
+
+inventory                  (auction items won)
+  - id                       uuid
+  - team_id                  uuid -> teams.id
+  - item_name                text   (copied from auction.item_name)
+  - status                   text   ('unused'|'used')
+
+------------------------------------------------------------------------------
+8. CORE BUSINESS LOGIC & INVARIANTS (DO NOT BREAK THESE)
+------------------------------------------------------------------------------
+
+8.1 IPO BUYING (app/ipo/page.tsx, handleBuy)
+   - cost = qty * company.ipo_price; rejected if cost > team.cash_balance.
+   - Deduct team.cash_balance; then upsert the holding:
+       new holding: average_purchase_price = ipo_price
+       existing:    avg = (oldQty*oldAvg + cost) / (oldQty + qty)
+   - IPO uses companies.ipo_price directly (NO +/-20% band on the IPO).
+
+8.2 PARTICIPATION GATING (app/page.tsx)
+   - "participated" = team.ipo_participant OR has any holding qty>0.
+   - During IPO window (phase in setup/waiting_for_ipo/ipo): logging in sets
+     ipo_participant = true.
+   - After the IPO window: non-participants are blocked at login. A previously
+     'locked' participant is let back in and unlocked.
+   - NOTE: ipo_min_spend is configured in setup and stored, but it is NOT
+     currently enforced as a hard gate anywhere in the buy/login flow. Treat it
+     as advisory unless you add enforcement intentionally.
+
+8.3 TRADING (app/trading/page.tsx)
+   - currentRoundNum = parseInt(current_phase after 'round_'); currentRound =
+     rounds.find(round_number === currentRoundNum).
+   - getCompanyMeanPrice(companyId): the current round's round_prices.mean_price,
+     falling back to company.ipo_price if none.
+   - PRICE BAND: a trade's price must satisfy meanPrice*0.8 <= price <=
+     meanPrice*1.2, else it's rejected before insert.
+   - Trade direction is encoded in the SIGN of quantity (see schema). On accept
+     (handleRespondToTrade), the code: validates buyer cash and seller shares,
+     moves cash both ways, decrements seller holding, and increments/creates
+     buyer holding (recomputing average_purchase_price). These are SEQUENTIAL,
+     NON-ATOMIC supabase calls — there is no transaction. A mid-sequence failure
+     can leave partial state. If you refactor, preserve the validations and
+     ordering, or wrap in an RPC/transaction (improvement, not required).
+   - getCompanyPriceHistory builds the chart series: IPO price, then each round
+     with round_number <= currentRoundNum (so the 9999 Endgame is naturally
+     excluded during play).
+
+8.4 THE ENDGAME SENTINEL ROUND (the most important cross-cutting concept)
+   - store/useGlobalStore.ts exports: ENDGAME_ROUND_NUMBER = 9999.
+   - The "Endgame" is modeled as a NORMAL row in `rounds` with
+     round_number = 9999, title 'Endgame'. Its per-company final prices live in
+     round_prices keyed to that round. It is NOT a playable phase.
+   - It is created on demand: in SetupWizard Step 5, and (idempotently) the
+     first time an admin saves Endgame prices in SpecialPriceDialog.
+   - EVERY place that enumerates "rounds" for gameplay MUST exclude 9999:
+       * MainDashboard: playableRounds = rounds.filter(r => r.round_number !==
+         ENDGAME_ROUND_NUMBER) — used for stats AND the dynamic phase buttons.
+       * RoundsEditor: filters it out of the middle list (shown as its own card).
+       * RoundEditDialog: when assigning a NEW round_number it excludes 9999
+         from Math.max (so new rounds get N+1, not 10000).
+       * app/trading: naturally excluded via the <= currentRoundNum filter.
+     If you add new logic that does Math.max over round_number or maps rounds to
+     UI/phases, YOU MUST FILTER OUT 9999 the same way, or you'll create a
+     "round 10000"/"Start Round 9999" bug.
+
+8.5 LIQUIDATION / GAME END (MainDashboard.liquidateHoldings)
+   - finalRound = endgameRound (9999) if it exists, ELSE the highest-numbered
+     playable round.
+   - For each team: value = sum(holding.qty * finalRound price); cash_balance
+     += value. Holdings rows are NOT deleted — after liquidation, cash_balance
+     IS the team's net worth and the final leaderboard ranks by cash_balance.
+   - app/ended mirrors the same finalRound selection for getCompanyFinalPrice,
+     and its leaderboard INCLUDES every non-locked team (a fully-cashed-out team
+     with zero holdings must still appear — do not reintroduce a holdings/IPO
+     filter here).
+
+8.6 AUCTION (app/auction, app/stage, app/admin/auctions)
+   - Create: status 'pending', current_highest_bid = starting_bid.
+   - Start: status -> 'active' (only one active at a time), opens /stage.
+   - Bid (team): must exceed current_highest_bid and be <= bidder cash; inserts
+     a bids row and updates auctions.current_highest_bid + highest_bidder_id.
+   - Countdown is CLIENT-SIDE only (resets to 3 on each new bid; "SOLD!" at 0).
+     ends_at is unused. The auction does NOT auto-close.
+   - End & Sell (admin): status -> 'ended'; if highest_bidder_id, deduct winner
+     cash and insert an inventory row (status 'unused'). Teams can mark items
+     'used'.
+
+------------------------------------------------------------------------------
+9. SETUP WIZARD FLOW (components/admin/SetupWizard.tsx)
+------------------------------------------------------------------------------
+6 linear steps; each writes to Supabase before advancing:
+  1 Teams ......... writes global_state.initial_team_balance + ipo_min_spend;
+                    inserts N teams (random 6-digit team_code, name "Team i").
+  2 Companies ..... inserts companies (ipo_price 0 placeholder, end_price 0,
+                    available_shares 10000, industry 'General').
+  3 IPO Prices .... updates global_state.ipo_min_spend; sets companies.ipo_price.
+  4 Rounds ........ inserts rounds (round_number 1..N) + round_prices per
+                    company.
+  5 End Prices .... creates/reuses the Endgame round (9999) and writes its
+                    round_prices (idempotent: finds existing 9999 round, deletes
+                    its round_prices, re-inserts). THIS is the source of truth
+                    for final prices — NOT companies.end_price.
+  6 Launch ........ sets current_phase = 'waiting_for_ipo'.
+
+Intended schema produced on first creation:
+  IPO (companies.ipo_price)  ->  rounds 1..N (+round_prices)  ->  Endgame round
+  9999 (+round_prices). Keep this shape; new rounds insert BETWEEN N and 9999.
+
+------------------------------------------------------------------------------
+10. KNOWN VESTIGIAL / GOTCHAS
+------------------------------------------------------------------------------
+- companies.end_price: LEGACY. Added by migrate.mjs and still written as 0 at
+  company creation, but NOTHING READS IT. Final prices come from the Endgame
+  round (round_prices). Do not wire new logic to end_price; use the Endgame
+  round. (Safe to drop the column later; left in to avoid a NOT NULL insert
+  break in SetupWizard Step 2.)
+- No atomic transactions: trades, liquidation, and auction settlement are
+  multi-step client writes. Partial-failure states are possible.
+- Controlled number inputs intentionally use `value={x || ''}` (and clear-to-''
+  handlers) so fields can be emptied instead of sticking at 0. Preserve this
+  when touching numeric inputs.
+- app/ipo uses a hardcoded `dummyData` sparkline (purely decorative). The real
+  per-round charts are on app/trading and app/ended.
+- The GlobalPhase union only lists round_1..round_5, but the system supports
+  more rounds at runtime; don't rely on the union as the true max.
+- Supabase URL + anon key are hardcoded in lib/supabase/client.ts (prototype).
+
+------------------------------------------------------------------------------
+11. HELPER SCRIPTS (repo root, run with node)
+------------------------------------------------------------------------------
+- migrate.mjs ....... uses `pg` to ALTER TABLE: adds companies.end_price and
+                      ensures global_state.ipo_min_spend.
+- check-schema.mjs .. probes whether companies.end_price exists and prints the
+                      ALTER statement if not.
+- reset.mjs ......... manual reset utility (if present).
+These talk to Postgres directly and are dev-time tools, not part of the app
+runtime.
+
+------------------------------------------------------------------------------
+12. SAFE-EDIT CHECKLIST (BEFORE YOU COMMIT A CHANGE)
+------------------------------------------------------------------------------
+- [ ] If you enumerate rounds for phases/buttons/Math.max: did you EXCLUDE
+      round_number 9999 (ENDGAME_ROUND_NUMBER)?
+- [ ] If you changed final pricing/liquidation: does it still prefer the
+      Endgame round and fall back to the last playable round, consistently in
+      BOTH MainDashboard.liquidateHoldings AND app/ended?
+- [ ] Does app/ended's leaderboard still include every non-locked team
+      (including zero-holdings teams)?
+- [ ] After any DB write, are you relying on realtime to update the store
+      (not double-mutating)?
+- [ ] Did you keep per-page phase guards and stale-session cleanup intact?
+- [ ] For trades: did you keep the +/-20% band and the cash/shares validations?
+- [ ] For Next.js APIs: did you check node_modules/next/dist/docs/ for this
+      pinned version's conventions?
+- [ ] Run `npx tsc --noEmit` to confirm types still pass.
+
+==============================================================================
+END OF CONTEXT
+==============================================================================

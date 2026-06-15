@@ -1,0 +1,372 @@
+==============================================================================
+                          DALAAALSTREET
+        A Live, Multiplayer Stock-Trading Competition for Events
+==============================================================================
+
+------------------------------------------------------------------------------
+1. WHAT THIS APP IS (THE BIG PICTURE)
+------------------------------------------------------------------------------
+
+DalaaalStreet is a real-time, multiplayer stock-market simulation built to be
+run as a live event game (college fests, corporate offsites, finance club
+competitions, workshops, etc.). One person acts as the "Mentor / Admin" and
+controls the flow of the game from a single control panel. Everyone else joins
+in TEAMS using a simple numeric code on their own phones or laptops.
+
+The game recreates the lifecycle of a stock market in a controlled, gamified
+way:
+
+  - Companies are "listed" with an IPO (initial) price.
+  - Teams are given a starting virtual cash balance (e.g. ₹10,00,000).
+  - Teams buy shares during an IPO phase.
+  - The market then moves through several "rounds". In each round the Admin
+    has pre-set how each stock's price changes (driven by a news/event
+    headline, e.g. "RBI hikes rates — banking stocks fall").
+  - Between price changes, teams trade shares with EACH OTHER (peer-to-peer)
+    to maximise their net worth.
+  - At the end, all shares are sold off ("liquidated") at final prices and a
+    leaderboard ranks every team by net worth.
+  - As a bonus finale, an optional live AUCTION lets teams spend their final
+    cash on fun reward items (e.g. "Mentor Dinner"), shown on a big screen.
+
+Everything updates LIVE across all devices the instant something happens — a
+trade, a price change, a new bid — using a real-time database. No refreshing,
+no manual syncing.
+
+The result is a fast, competitive, spectator-friendly trading game that an
+Admin can fully configure (companies, prices, rounds, teams, rewards) without
+touching any code, all through a guided setup wizard.
+
+------------------------------------------------------------------------------
+2. THE TWO TYPES OF USERS
+------------------------------------------------------------------------------
+
+A) THE ADMIN / MENTOR (one person, one device)
+   - Logs in with a private admin passcode.
+   - Sets up the entire game with a 6-step wizard.
+   - Controls when the game moves from one phase to the next.
+   - Can edit any company, price, round, or team at any time.
+   - Runs the optional auction at the end.
+
+B) THE PARTICIPANTS (the teams, many devices)
+   - Each team logs in with a 6-digit Team Code given to them by the Admin.
+   - They buy shares, trade with other teams, and (optionally) bid in the
+     auction.
+   - They never see admin controls — only their own team's view.
+
+------------------------------------------------------------------------------
+3. THE COMPLETE GAME FLOW (STEP BY STEP, IN ORDER)
+------------------------------------------------------------------------------
+
+The game always moves forward through a fixed sequence of "phases". The Admin
+is the only one who advances phases. The sequence is:
+
+   SETUP  ->  WAITING FOR IPO  ->  IPO  ->  ROUND 1 ... ROUND N
+          ->  ENDED (Leaderboard)  ->  AUCTION
+
+Here is exactly what happens in each phase.
+
+------------------------------------------------------------------------------
+3.1  PHASE: SETUP  (Admin only — building the game)
+------------------------------------------------------------------------------
+
+When the game has never been configured (or after a full wipe), the Admin
+dashboard automatically shows a 6-STEP SETUP WIZARD. The Admin completes each
+step in order:
+
+  STEP 1 — TEAMS
+     - Choose how many teams will play (1 to 200).
+     - Set the starting cash balance every team receives (e.g. ₹10,00,000).
+     - The app auto-creates each team with a UNIQUE 6-DIGIT LOGIN CODE and a
+       default name ("Team 1", "Team 2", ...). These codes are what the Admin
+       hands out to participants.
+
+  STEP 2 — COMPANIES
+     - Type in the names of the companies that will be tradable.
+     - Add or remove as many as needed.
+
+  STEP 3 — IPO PRICES
+     - Set the starting (IPO) price for each company. This is the price teams
+       pay per share during the IPO phase.
+     - Set the "Minimum IPO Spend" guideline (how much each team is expected
+       to invest during the IPO).
+
+  STEP 4 — ROUNDS
+     - Define each trading round. For every round you enter:
+         * a News/Event headline shown to participants
+           (e.g. "Tech boom — IT stocks surge"),
+         * the new mean (average) price of EACH company in that round.
+     - You can add as many rounds as you want (the app handles any number).
+
+  STEP 5 — END PRICES (THE "ENDGAME")
+     - Set the FINAL settlement price for each company. This is the price at
+       which every team's remaining shares are sold off when the game ends.
+     - These are hidden from participants until the game is over.
+
+  STEP 6 — LAUNCH
+     - Review a summary (teams, companies, rounds, balances) and launch.
+     - Launching moves the game into "Waiting for IPO".
+
+The Admin can ALWAYS go back later and edit anything (see Section 4).
+
+------------------------------------------------------------------------------
+3.2  PHASE: WAITING FOR IPO  (The lobby)
+------------------------------------------------------------------------------
+
+   - Participants can now log in with their Team Code.
+   - They land on a "Waiting" screen ("Waiting for IPO Release...").
+   - No trading happens yet — this is the holding lobby while everyone joins.
+   - The Admin presses "Release IPO" when ready to begin.
+
+------------------------------------------------------------------------------
+3.3  PHASE: IPO  (Teams buy their first shares)
+------------------------------------------------------------------------------
+
+   - Each team sees every company as a card showing its IPO price, the number
+     of available shares, and a small price chart.
+   - A team enters a quantity and presses BUY. The cost (quantity x IPO price)
+     is deducted from their cash balance, and the shares are added to their
+     portfolio (their "holdings").
+   - Buying more of the same company correctly averages the purchase price.
+   - The app prevents buying more than a team can afford.
+   - Every team's cash balance updates live as they spend.
+
+NOTE ON PARTICIPATION: When a team logs in during the IPO window, it is marked
+as a participant. After the game moves past the IPO, teams that never joined
+the IPO are blocked from entering — this stops late-comers from joining once
+trading has begun. (Teammates on extra devices can still join as long as their
+team participated.)
+
+------------------------------------------------------------------------------
+3.4  PHASE: ROUND 1, ROUND 2, ... ROUND N  (The trading floor)
+------------------------------------------------------------------------------
+
+This is the heart of the game. The Admin advances the market one round at a
+time ("Start Round 1", "Start Round 2", ...). In each round:
+
+  THE MARKET MOVES
+     - Each company's price changes to the mean price the Admin set for that
+       round. A news headline for the round is displayed to explain why.
+     - A live PRICE CHART for each company shows how its price has moved from
+       the IPO through every round so far. Hovering a point on the chart shows
+       which round it was and the exact price (e.g. "Round 2: ₹105.40"). The
+       line is green if the price is up versus IPO, red if down.
+
+  TEAMS TRADE WITH EACH OTHER (PEER-TO-PEER)
+     - A team creates a trade request: choose Buy or Sell, a company, a
+       quantity, a price, and the OTHER TEAM they want to trade with.
+     - IMPORTANT RULE — THE PRICE BAND: any offered price must be within
+       +/- 20% of the current round's mean price for that company. (If the
+       mean is ₹100, valid offers are ₹80 to ₹120.) This keeps trading
+       realistic and prevents absurd prices.
+     - The request is sent to the target team, who sees it as an INCOMING
+       request and can ACCEPT or REJECT it.
+     - On ACCEPT, the system automatically: moves the shares from seller to
+       buyer, moves the cash from buyer to seller, and updates both teams'
+       portfolios. It also checks the buyer has enough cash and the seller
+       has enough shares (rejecting the trade if not).
+     - Requests expire automatically after 3 minutes if not answered.
+
+  EACH TEAM SEES, LIVE:
+     - Their net worth (cash + value of all holdings at current prices),
+     - Their cash balance,
+     - Their portfolio with profit/loss per holding,
+     - Incoming and outgoing trade requests (with counts).
+
+The Admin keeps advancing rounds until the final round is done.
+
+------------------------------------------------------------------------------
+3.5  PHASE: ENDED  (Liquidation + Final Leaderboard)
+------------------------------------------------------------------------------
+
+When the Admin presses "End Game":
+
+  - LIQUIDATION: every team's remaining shares are automatically sold at the
+    FINAL (Endgame) prices the Admin set in Setup Step 5. The proceeds are
+    added to each team's cash. After this, a team's cash balance IS its final
+    net worth.
+  - Teams are taken to the FINAL RESULTS screen, which shows:
+       * Their final rank (#1, #2, ...),
+       * Their final net worth and total profit/loss versus their starting
+         balance,
+       * A FINAL PRICE-HISTORY GRAPH for every company (IPO -> each round ->
+         Endgame), with hover tooltips showing the round and exact price,
+       * The full LEADERBOARD ranking every team by net worth, with medals
+         for the top three and their own team highlighted.
+
+  IMPORTANT: Every active team appears on the leaderboard with a rank — even a
+  team that sold off ALL of its shares and is holding only cash. No
+  participating team is ever dropped from the final standings.
+
+------------------------------------------------------------------------------
+3.6  PHASE: AUCTION  (Optional grand finale)
+------------------------------------------------------------------------------
+
+After the game, teams can spend their final cash on fun reward items in a live
+auction run by the Admin.
+
+  - The Admin creates auction items (name, description, starting bid) in the
+    Auction Management screen, then presses "Start" on one item.
+  - Starting an item opens a BIG-SCREEN "STAGE" view (meant to be projected),
+    showing the item, the current highest bid, the leading team, and a
+    countdown.
+  - On their own devices, teams place bids: quick "+₹50,000" / "+₹1,00,000"
+    buttons, or a custom amount. Each bid must beat the current highest and
+    must be within the team's cash balance.
+  - A short countdown resets every time a new bid comes in ("Going once...").
+  - The Admin presses "End & Sell". The winning team's cash is deducted and
+    the item is added to their inventory, where they can mark it as "used"
+    when they redeem it.
+  - Only one auction item can be live at a time. The Admin can run as many
+    items in sequence as they like.
+
+------------------------------------------------------------------------------
+4. ADMIN POWERS (BEYOND SETUP)
+------------------------------------------------------------------------------
+
+The Admin has a full control panel ("Command Center") and a "Properties" area:
+
+  GAME CONTROLS (Command Center)
+     - A single row of phase buttons (Release IPO, Start Round 1, Start
+       Round 2, ..., End Game, Auction). Only the NEXT valid action is
+       highlighted and clickable; past phases are locked. This makes it
+       impossible to skip or break the sequence.
+     - The round buttons are generated automatically from however many rounds
+       were configured — add 4 rounds and you get 4 round buttons.
+     - Live stats: active teams, companies listed, number of rounds.
+
+  PROPERTIES (edit anything, anytime)
+     - COMPANIES: edit a company's name, industry, IPO price, shares, etc.
+     - ROUNDS: a clean list that always shows IPO first, every trading round
+       in the middle, and Endgame last. You can edit each round's headline and
+       its per-company prices, edit the IPO prices, edit the Endgame (final)
+       prices, and add new rounds (which slot in neatly between IPO and
+       Endgame).
+     - TEAMS: edit a team's name or cash balance, regenerate its login code.
+
+  RESET (start over safely)
+     - SOFT RESET: clears all trades, holdings, bids and winnings, and resets
+       every team's cash back to the starting balance — but KEEPS your
+       companies, rounds, prices, and teams. Perfect for re-running the same
+       configured game with a fresh group.
+     - HARD RESET: wipes everything and returns to the Setup Wizard for a
+       completely new game.
+
+------------------------------------------------------------------------------
+5. WHAT MAKES IT WORK WELL (HIGHLIGHTS)
+------------------------------------------------------------------------------
+
+  - FULLY LIVE: every device updates instantly — trades, prices, bids,
+    balances. Spectators can watch the leaderboard and auction in real time.
+  - NO-CODE SETUP: the Admin configures the whole game (any number of
+    companies, rounds, teams, and reward items) through a guided wizard.
+  - SELF-CONTAINED & FAIR: the price band, fund/shares checks, phase locking,
+    and participation rules keep the game orderly without policing.
+  - MOBILE-FRIENDLY: participants play on their phones with a clean, modern,
+    dark "trading arena" interface.
+  - SPECTATOR MODE: a dedicated big-screen auction stage makes the finale a
+    live event.
+
+==============================================================================
+6. TEST GUIDE — HOW TO TEST THE APP
+==============================================================================
+
+------------------------------------------------------------------------------
+6.1  DEVICE REQUIREMENT (IMPORTANT)
+------------------------------------------------------------------------------
+
+A MINIMUM OF 3 DEVICES (or 3 separate browser windows/profiles) IS REQUIRED to
+properly test this app, because the core gameplay is multiplayer and
+peer-to-peer:
+
+   - 1 device = THE ADMIN (runs the control panel and advances phases).
+   - 2 devices = TWO PARTICIPANT TEAMS (needed because trading happens BETWEEN
+     two teams — one sends a trade request, the other accepts/rejects it).
+
+You cannot fully test trading or the auction with fewer than 3 devices. (Tip:
+if you don't have 3 physical devices, use three different browsers or
+incognito/private windows so each has its own separate login session.)
+
+For a richer test, use 4+ devices: 1 admin + 3 or more teams, plus optionally
+one extra screen opened to the big-screen Auction "Stage" view.
+
+------------------------------------------------------------------------------
+6.2  FULL TEST WALKTHROUGH
+------------------------------------------------------------------------------
+
+DEVICE A = ADMIN.  DEVICES B and C = TEAMS.
+
+  1) SET UP THE GAME (Device A — Admin)
+     - Open the app, go to the Admin login, and enter the admin passcode.
+     - If prompted with the Setup Wizard, complete all 6 steps:
+         Step 1: create at least 2 teams, set a starting balance.
+         Step 2: add at least 2 companies.
+         Step 3: set an IPO price for each company.
+         Step 4: create at least 2 rounds with prices and headlines.
+         Step 5: set Endgame (final) prices for each company.
+         Step 6: Launch.
+     - Write down (or note) two of the generated 6-digit Team Codes.
+
+  2) TEAMS JOIN (Devices B and C)
+     - On each device, open the app and log in using a different Team Code.
+     - You should land on the "Waiting for IPO" screen.
+
+  3) RUN THE IPO (Device A presses "Release IPO")
+     - On Devices B and C, the IPO screen appears.
+     - On each team, buy some shares of one or more companies. Confirm the
+       cash balance drops and the purchase succeeds. Try to overspend and
+       confirm it is blocked.
+
+  4) RUN A TRADING ROUND (Device A presses "Start Round 1")
+     - Devices B and C move to the Trading Floor.
+     - Confirm the Market Watch shows the round's prices and the price charts
+       appear. Hover a chart point and confirm it shows the round + price.
+     - On Device B, create a trade request: choose Buy/Sell, a company, a
+       quantity, a price WITHIN +/-20% of the shown mean price, and select
+       Team C as the target. Send it. (Test the band by trying a price outside
+       +/-20% and confirming it is rejected.)
+     - On Device C, find the INCOMING request and ACCEPT it.
+     - Confirm both teams' cash and portfolios update live and correctly.
+     - (Optional) Advance to Round 2 and repeat; confirm prices and charts
+       update.
+
+  5) END THE GAME (Device A presses "End Game")
+     - Devices B and C show the Final Results screen.
+     - Confirm every team appears on the leaderboard with a rank (including a
+       team that sold all its shares), the price-history graphs end at the
+       "Endgame" point, and profit/loss looks correct.
+
+  6) RUN THE AUCTION (Device A switches to the Auction phase)
+     - In Auction Management, create an item and press "Start" (a big-screen
+       Stage window opens — optionally view it on a 4th screen).
+     - On Devices B and C, place competing bids. Confirm bids must beat the
+       current highest and cannot exceed a team's balance, and the highest
+       bidder updates live.
+     - Press "End & Sell". Confirm the winner's cash is deducted and the item
+       appears in their inventory.
+
+  7) RESET (Device A)
+     - Try a SOFT RESET and confirm teams/companies/rounds remain but progress
+       is cleared.
+     - (Optional) Try a HARD RESET and confirm it returns to the Setup Wizard.
+
+------------------------------------------------------------------------------
+6.3  WHAT TO VERIFY (CHECKLIST)
+------------------------------------------------------------------------------
+
+  [ ] Team codes log in; wrong codes are rejected.
+  [ ] Phases only advance via the Admin, in the correct order.
+  [ ] IPO purchases deduct cash and create holdings; overspend is blocked.
+  [ ] Round prices and live charts update; hover tooltip shows round + price.
+  [ ] Trade price must be within +/-20% of the round mean price.
+  [ ] A trade between two teams moves both shares AND cash correctly.
+  [ ] End Game liquidates holdings at Endgame prices.
+  [ ] Leaderboard shows EVERY team with a rank (even a fully-cashed-out team).
+  [ ] Auction: bids must beat the current high and fit the team's balance;
+      winner is charged and receives the item.
+  [ ] Soft reset keeps config; hard reset returns to setup.
+  [ ] All of the above reflect LIVE across every device without refreshing.
+
+==============================================================================
+END OF DESCRIPTION
+==============================================================================

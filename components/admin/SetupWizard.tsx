@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase/client'
+import { ENDGAME_ROUND_NUMBER } from '@/store/useGlobalStore'
 import { toast } from 'sonner'
 import {
   Users, Building2, TrendingUp, BarChart3, DollarSign,
@@ -205,16 +206,46 @@ export default function SetupWizard() {
   }
 
   // ── STEP 5: Save end prices ───────────────────────────────────
+  // End prices live in a dedicated "Endgame" round (round_number = 9999), the
+  // same place the game-end liquidation and final graphs read from. This keeps
+  // the schema consistent: IPO (company.ipo_price) → rounds → Endgame round.
   const handleSaveEndPrices = async () => {
     setIsLoading(true)
     try {
-      for (const c of savedCompanies) {
-        const { error } = await supabase
-          .from('companies')
-          .update({ end_price: endPrices[c.id] ?? 0 })
-          .eq('id', c.id)
-        if (error) throw error
+      // Find or create the Endgame round (idempotent if the step is re-run).
+      let endgameId: string
+      const { data: existing } = await supabase
+        .from('rounds')
+        .select('id')
+        .eq('round_number', ENDGAME_ROUND_NUMBER)
+        .maybeSingle()
+
+      if (existing) {
+        endgameId = existing.id
+        await supabase.from('round_prices').delete().eq('round_id', endgameId)
+      } else {
+        const { data: created, error: rErr } = await supabase
+          .from('rounds')
+          .insert({
+            round_number: ENDGAME_ROUND_NUMBER,
+            title: 'Endgame',
+            event_description: 'Final liquidation prices used when the game ends.',
+            is_active: false,
+          })
+          .select()
+          .single()
+        if (rErr || !created) throw rErr || new Error('Failed to create Endgame round')
+        endgameId = created.id
       }
+
+      const rows = savedCompanies.map(c => ({
+        round_id: endgameId,
+        company_id: c.id,
+        mean_price: endPrices[c.id] ?? 0,
+      }))
+      const { error: pErr } = await supabase.from('round_prices').insert(rows)
+      if (pErr) throw pErr
+
       toast.success('End prices saved!')
       setStep(6)
     } catch (err: any) {
@@ -296,14 +327,14 @@ export default function SetupWizard() {
               <div className="space-y-2">
                 <Label htmlFor="teamCount">Number of Teams</Label>
                 <Input id="teamCount" type="number" min={1} max={200}
-                  value={teamCount} onChange={e => setTeamCount(Number(e.target.value))}
+                  value={teamCount || ''} onChange={e => setTeamCount(Number(e.target.value))}
                   className="bg-background" />
                 <p className="text-xs text-muted-foreground">Each team gets a unique 6-digit login code automatically.</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="initBal">Initial Balance per Team (₹)</Label>
                 <Input id="initBal" type="number" min={1000}
-                  value={initialBalance} onChange={e => setInitialBalance(Number(e.target.value))}
+                  value={initialBalance || ''} onChange={e => setInitialBalance(Number(e.target.value))}
                   className="bg-background" />
               </div>
             </CardContent>
@@ -359,7 +390,7 @@ export default function SetupWizard() {
               <div className="space-y-2">
                 <Label htmlFor="ipoMin">Minimum IPO Spend per Team (₹)</Label>
                 <Input id="ipoMin" type="number" min={0}
-                  value={ipoMinSpend} onChange={e => setIpoMinSpend(Number(e.target.value))}
+                  value={ipoMinSpend || ''} onChange={e => setIpoMinSpend(Number(e.target.value))}
                   className="bg-background" />
                 <p className="text-xs text-muted-foreground">Each team must spend at least this amount during the IPO phase. Set 0 for no minimum.</p>
               </div>
@@ -375,7 +406,7 @@ export default function SetupWizard() {
                       <Input
                         type="number" min={1}
                         className="w-28 bg-background"
-                        value={ipoPrices[c.id] ?? 100}
+                        value={ipoPrices[c.id] || ''}
                         onChange={e => setIpoPrices(prev => ({ ...prev, [c.id]: Number(e.target.value) }))}
                       />
                       <span className="text-xs text-muted-foreground">/ share</span>
@@ -439,7 +470,7 @@ export default function SetupWizard() {
                             <Input
                               type="number" min={1}
                               className="w-24 bg-background text-sm h-8"
-                              value={r.prices[c.id] ?? 100}
+                              value={r.prices[c.id] || ''}
                               onChange={e => setRounds(prev => prev.map((rr, idx) =>
                                 idx === i ? { ...rr, prices: { ...rr.prices, [c.id]: Number(e.target.value) } } : rr
                               ))}
@@ -492,7 +523,7 @@ export default function SetupWizard() {
                     <Input
                       type="number" min={0}
                       className="w-28 bg-background"
-                      value={endPrices[c.id] ?? 100}
+                      value={endPrices[c.id] || ''}
                       onChange={e => setEndPrices(prev => ({ ...prev, [c.id]: Number(e.target.value) }))}
                     />
                   </div>

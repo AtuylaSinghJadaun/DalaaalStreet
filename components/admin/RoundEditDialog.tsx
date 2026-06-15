@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Round, RoundPrice, Company } from '@/store/useGlobalStore'
-import { useAppStore } from '@/store/useGlobalStore'
+import { useAppStore, ENDGAME_ROUND_NUMBER } from '@/store/useGlobalStore'
 import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
@@ -48,7 +48,10 @@ export default function RoundEditDialog({ round, isOpen, onClose, isCreating = f
   useEffect(() => {
     if (isCreating) {
       // Create new round with default prices
-      const maxRoundNumber = rounds.length > 0 ? Math.max(...rounds.map(r => r.round_number)) : 0
+      // Exclude the Endgame sentinel so a new round slots in sequentially
+      // between the rounds and Endgame, not after the sentinel (9999).
+      const playable = rounds.filter(r => r.round_number !== ENDGAME_ROUND_NUMBER)
+      const maxRoundNumber = playable.length > 0 ? Math.max(...playable.map(r => r.round_number)) : 0
       const defaultPrices = companies.map(company => ({
         company_id: company.id,
         mean_price: company.ipo_price || 0,
@@ -262,16 +265,19 @@ export default function RoundEditDialog({ round, isOpen, onClose, isCreating = f
               </div>
 
               <div className="space-y-2">
-                <Label className="text-purple-300 font-semibold text-sm uppercase tracking-wider">Market Event</Label>
+                <Label className="text-purple-300 font-semibold text-sm uppercase tracking-wider">News Headline <span className="text-gray-500 normal-case tracking-normal">(optional)</span></Label>
                 <textarea
                   id="event_description"
                   name="event_description"
                   value={formData.round.event_description}
                   onChange={handleRoundInputChange}
-                  placeholder="Describe what happens in this market round..."
+                  placeholder="e.g. Tech stocks surge as AI demand explodes! Leave blank for no headline."
                   className="w-full px-3 py-2 bg-white/5 border border-purple-500/30 focus:border-purple-400 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                   rows={3}
                 />
+                <p className="text-xs text-gray-400">
+                  Typed out on participant screens & the big screen when this round begins. Leave empty to skip.
+                </p>
               </div>
 
               <label className="flex items-center gap-3 cursor-pointer">
@@ -314,7 +320,7 @@ export default function RoundEditDialog({ round, isOpen, onClose, isCreating = f
                           id={`price-${price.company_id}`}
                           type="number"
                           step="0.01"
-                          value={price.mean_price}
+                          value={price.mean_price || ''}
                           onChange={(e) => handlePriceChange(price.company_id, parseFloat(e.target.value) || 0)}
                           className="bg-white/5 border border-green-500/30 focus:border-green-400 text-white mt-1 rounded-lg"
                         />

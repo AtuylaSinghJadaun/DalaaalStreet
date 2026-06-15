@@ -145,14 +145,16 @@ export default function AuctionRoom() {
 
   return (
     <div className="min-h-screen p-6 bg-background text-foreground pb-24">
-      <header className="flex justify-between items-center mb-8 bg-card p-6 rounded-xl border border-border shadow-lg">
-        <div>
+      <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 bg-card p-6 rounded-xl border border-border shadow-lg">
+        <div className="min-w-0">
           <h1 className="text-3xl font-black tracking-tight uppercase">Auction Center</h1>
-          <p className="text-muted-foreground">Spend your final portfolio balance on exclusive rewards.</p>
+          <p className="text-muted-foreground mt-1">Spend your final balance on exclusive Power-Ups and Briefs.</p>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground uppercase tracking-wider font-bold">Your Balance</p>
-          <p className="text-3xl font-mono font-black text-primary">₹ {myTeam.cash_balance.toLocaleString()}</p>
+        <div className="shrink-0 rounded-xl border border-primary/20 bg-primary/10 px-5 py-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Your Balance</p>
+          <p className="text-2xl sm:text-3xl font-mono font-black text-primary whitespace-nowrap mt-0.5">
+            ₹{myTeam.cash_balance.toLocaleString('en-IN')}
+          </p>
         </div>
       </header>
 
@@ -177,24 +179,26 @@ export default function AuctionRoom() {
               </CardHeader>
               <CardContent className="space-y-8">
                 
-                <div className="flex flex-col items-center p-8 bg-secondary/30 rounded-xl border border-border">
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider font-bold mb-2">Current Highest Bid</p>
-                  <p className="text-6xl font-mono font-black text-primary">₹ {activeAuction.current_highest_bid.toLocaleString()}</p>
-                  
+                <div className="flex flex-col items-center text-center p-8 bg-secondary/30 rounded-xl border border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-3">Current Highest Bid</p>
+                  <p className="text-5xl sm:text-6xl font-mono font-black text-primary whitespace-nowrap leading-none">
+                    ₹{activeAuction.current_highest_bid.toLocaleString('en-IN')}
+                  </p>
+
                   {activeAuction.highest_bidder_id && (
-                    <div className="mt-4 flex items-center gap-2 bg-background px-4 py-2 rounded-full border border-border">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
-                      <span className="font-bold">
+                    <div className="mt-5 inline-flex items-center gap-2 bg-background px-4 py-2 rounded-full border border-border max-w-full">
+                      <Trophy className="w-4 h-4 text-yellow-500 shrink-0" />
+                      <span className="font-bold truncate">
                         {teams.find(t => t.id === activeAuction.highest_bidder_id)?.name || 'Unknown Team'}
                       </span>
-                      {activeAuction.highest_bidder_id === myTeam.id && <span className="text-primary text-xs font-bold uppercase ml-2">(You)</span>}
+                      {activeAuction.highest_bidder_id === myTeam.id && <span className="text-primary text-xs font-bold uppercase shrink-0">(You)</span>}
                     </div>
                   )}
 
                   {countdown !== null && (
-                    <div className="mt-6 text-center">
-                      <p className="text-sm text-muted-foreground uppercase">Going in</p>
-                      <p className={`text-5xl font-black font-mono ${countdown === 0 ? 'text-red-500' : 'text-foreground'}`}>
+                    <div className="mt-6 w-full border-t border-border pt-5">
+                      <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Going in</p>
+                      <p className={`text-5xl font-black font-mono mt-1 ${countdown === 0 ? 'text-red-500' : 'text-foreground'}`}>
                         {countdown > 0 ? countdown : 'SOLD!'}
                       </p>
                     </div>
@@ -252,7 +256,7 @@ export default function AuctionRoom() {
           <Card className="bg-card border-border shadow-md">
             <CardHeader>
               <CardTitle>My Inventory</CardTitle>
-              <CardDescription>Rewards you have won</CardDescription>
+              <CardDescription>Power-Ups and Briefs you have won</CardDescription>
             </CardHeader>
             <CardContent>
               {myInventory.length === 0 && (

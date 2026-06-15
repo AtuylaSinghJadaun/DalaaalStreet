@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import StoreInitializer from "@/components/StoreInitializer";
+import PhaseTransition from "@/components/PhaseTransition";
+import TeamBadge from "@/components/TeamBadge";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
@@ -32,6 +34,8 @@ export default function RootLayout({
       <body className={`${inter.variable} ${spaceGrotesk.variable} antialiased min-h-screen bg-background text-foreground`}>
         <StoreInitializer>
           {children}
+          <TeamBadge />
+          <PhaseTransition />
         </StoreInitializer>
         <Toaster theme="dark" />
       </body>
